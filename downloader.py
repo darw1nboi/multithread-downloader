@@ -1,9 +1,12 @@
 import requests
 import threading
 import os
+import shutil
 from tqdm import tqdm
 
 TEMP_FOLDER = "segments"
+MAX_THREADS = 8
+
 
 def download_segment(url, start, end, segment_num, progress_bars):
     headers = {"Range": f"bytes={start}-{end}"}
@@ -15,15 +18,21 @@ def download_segment(url, start, end, segment_num, progress_bars):
                 f.write(chunk)
                 progress_bars[segment_num].update(len(chunk))
 
+
 def main():
     num_threads = int(input("Number of threads to use: "))
     url = input("Copy the file URL: ")
     file_path = input("Choose the path and file name: ")
 
+    if num_threads > MAX_THREADS:
+        print(f"\nThe maximum amount of threads exceeded (max {MAX_THREADS})")
+        return
+
     r = requests.head(url)
     if "Content-Length" not in r.headers:
-        print("\n" + "Invalid URL or missing Content-Length header.")
+        print("\nInvalid URL or missing Content-Length header.")
         return
+
     total_size = int(r.headers["Content-Length"])
     print("\n" + "─" * 100)
     print(f"File size: {total_size / 1024 / 1024:.2f} MB")
@@ -32,12 +41,16 @@ def main():
     os.makedirs(TEMP_FOLDER, exist_ok=True)
     part_size = total_size // num_threads
 
-    global_progress = tqdm(total=total_size, unit="B", unit_scale=True,
-                           desc="Total", position=0)
+    global_progress = tqdm(
+        total=total_size, unit="B", unit_scale=True,
+        desc="Total", position=0
+    )
 
     progress_bars = [
-        tqdm(total=part_size if i < num_threads - 1 else total_size - part_size * (num_threads - 1),
-             unit="B", unit_scale=True, desc=f"Thread {i}", position=i+1)
+        tqdm(
+            total=part_size if i < num_threads - 1 else total_size - part_size * (num_threads - 1),
+            unit="B", unit_scale=True, desc=f"Thread {i}", position=i+1
+        )
         for i in range(num_threads)
     ]
 
@@ -53,6 +66,7 @@ def main():
         downloaded = sum(pbar.n for pbar in progress_bars)
         global_progress.n = downloaded
         global_progress.refresh()
+
     for t in threads:
         t.join()
 
@@ -63,7 +77,8 @@ def main():
                 outfile.write(infile.read())
             os.remove(part_file)
 
-    os.rmdir(TEMP_FOLDER)
+    if os.path.exists(TEMP_FOLDER):
+        shutil.rmtree(TEMP_FOLDER)
 
     for pbar in progress_bars:
         pbar.close()
@@ -72,6 +87,7 @@ def main():
     print("\n" + "─" * 100)
     print(f"Your download is finished -> {file_path}")
     print("─" * 100)
+
 
 if __name__ == "__main__":
     main()
