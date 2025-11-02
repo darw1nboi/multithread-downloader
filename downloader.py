@@ -6,7 +6,7 @@ import re
 from tqdm import tqdm
 
 TEMP_FOLDER = "segments"
-MAX_THREADS = 8
+MAX_THREADS = 8 # set your preferences for download threads
 
 
 def get_filename_from_headers(headers, default="downloaded_file.bin"):
@@ -122,3 +122,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
